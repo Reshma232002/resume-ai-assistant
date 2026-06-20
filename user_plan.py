@@ -1,28 +1,19 @@
 # user_plan.py
 
-FREE_LIMIT = 1  # ✅ 1 analysis per day for free users
+from backend_db import get_user_usage, get_user_plan_from_db
 
+FREE_LIMIT = 1  # as you requested
 
-def get_user_plan(user_doc):
-    return user_doc.get("plan", "free")
+def can_use_service(user_email):
 
+    plan = get_user_plan_from_db(user_email)
 
-def can_use_service(user_doc):
-    """
-    Returns:
-    - True if user can use service
-    - False if limit exceeded
-    """
-
-    plan = get_user_plan(user_doc)
-
-    # Premium users → unlimited
     if plan == "premium":
-        return True, "Premium user: Unlimited access"
+        return True, "Premium user - unlimited access"
 
-    usage = user_doc.get("daily_usage", 0)
+    usage = get_user_usage(user_email)
 
     if usage >= FREE_LIMIT:
-        return False, "Free limit reached (1 analysis/day). Upgrade to continue."
+        return False, "Daily limit reached (1 analysis/day for free users)"
 
-    return True, f"Free plan: {usage}/{FREE_LIMIT} used today"
+    return True, f"{FREE_LIMIT - usage} free analyses left today"
