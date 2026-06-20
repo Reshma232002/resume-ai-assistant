@@ -25,7 +25,7 @@ st.set_page_config(
 )
 
 st.title("AI Resume Assistant")
-st.caption("Analyze resumes, compare with job descriptions, and generate career insights.")
+st.caption("Analyze resumes, compare with job descriptions, and generate career insights")
 
 
 # ==================================================
@@ -39,7 +39,7 @@ if "user_email" not in st.session_state:
 
 
 # ==================================================
-# LOGOUT FUNCTION
+# LOGOUT
 # ==================================================
 def logout():
     st.session_state.user = None
@@ -48,7 +48,7 @@ def logout():
 
 
 # ==================================================
-# DASHBOARD UI
+# DASHBOARD
 # ==================================================
 def dashboard():
     st.subheader("📊 Dashboard")
@@ -69,23 +69,22 @@ def dashboard():
     history = get_user_history(st.session_state.user_email)
 
     if history:
-        scores = [
+        df = pd.DataFrame([
             {"Analysis": i + 1, "ATS Score": item.get("ats_score", 0)}
             for i, item in enumerate(history)
-        ]
-
-        df = pd.DataFrame(scores)
+        ])
 
         fig = px.line(df, x="Analysis", y="ATS Score", markers=True)
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("No analyses available yet.")
+        st.info("No analyses yet.")
 
 
 # ==================================================
-# RESUME ANALYSIS UI
+# RESUME ANALYSIS
 # ==================================================
 def resume_analysis():
+
     uploaded_file = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
     job_description = st.text_area("Paste Job Description")
 
@@ -96,19 +95,15 @@ def resume_analysis():
         st.subheader("Extracted Resume")
         st.text_area("Resume Text", resume_text, height=250)
 
-        # ML/ATS analysis
         result = analyze_resume(resume_text, job_description)
 
-        # Gemini AI
         try:
             with st.spinner("Generating AI insights..."):
                 gemini_output = generate_ai_content(resume_text, job_description)
         except Exception as e:
-            gemini_output = f"⚠️ Gemini AI temporarily unavailable.\n\nError: {str(e)}"
+            gemini_output = f"Gemini error: {str(e)}"
 
-        # ======================
-        # OUTPUT SECTION
-        # ======================
+        # ================= OUTPUT =================
         st.subheader("🤖 Gemini AI Insights")
         st.markdown(gemini_output)
 
@@ -122,8 +117,14 @@ def resume_analysis():
         st.subheader("Missing Skills")
         st.write(result["missing"])
 
+        # FIXED: unique keys (NO index bug)
         st.subheader("Cover Letter")
-        st.text_area("Cover Letter", result["cover_letter"], height=220,key=f"cover_letter_{index}")
+        st.text_area(
+            "Cover Letter",
+            result["cover_letter"],
+            height=220,
+            key="cover_letter_main"
+        )
 
         st.download_button(
             "Download Cover Letter",
@@ -132,15 +133,18 @@ def resume_analysis():
         )
 
         st.subheader("Interview Questions")
-        for q in result["interview_questions"]:
-            st.write(f"• {q}")
+        for i, q in enumerate(result["interview_questions"]):
+            st.write(f"{i+1}. {q}")
 
         st.subheader("LinkedIn Summary")
-        st.text_area("LinkedIn Summary", result["linkedin_summary"], height=180,key=f"linkedin_{index}")
+        st.text_area(
+            "LinkedIn Summary",
+            result["linkedin_summary"],
+            height=180,
+            key="linkedin_main"
+        )
 
-        # ======================
-        # PDF REPORT
-        # ======================
+        # ================= PDF =================
         pdf_path = "resume_report.pdf"
 
         generate_pdf(
@@ -161,9 +165,7 @@ def resume_analysis():
                 mime="application/pdf",
             )
 
-        # ======================
-        # SAVE ANALYSIS
-        # ======================
+        # ================= SAVE =================
         if st.button("💾 Save Analysis"):
 
             save_analysis(
@@ -178,38 +180,53 @@ def resume_analysis():
                 ai_insights=gemini_output,
             )
 
-            st.success("Analysis saved successfully!")
+            st.success("Saved successfully!")
 
     st.button("🚪 Logout", on_click=logout)
 
 
 # ==================================================
-# HISTORY UI
+# HISTORY
 # ==================================================
 def analysis_history():
-    st.subheader("📜 Your Previous Analyses")
+
+    st.subheader("📜 Previous Analyses")
 
     history = get_user_history(st.session_state.user_email)
 
     if history:
+
         for i, item in enumerate(history, start=1):
 
-            with st.expander(f"📄 Analysis {i} | ATS Score: {item.get('ats_score', 0)}",expanded=False):
-            
+            with st.expander(
+                f"📄 Analysis {i} | ATS Score: {item.get('ats_score', 0)}",
+                expanded=False
+            ):
 
                 st.metric("ATS Score", f"{item.get('ats_score', 0)} / 100")
 
                 st.markdown("### ✅ Matched Skills")
-                st.write(", ".join(item.get("matched_skills", [])) or "No matched skills")
+                st.write(", ".join(item.get("matched_skills", [])) or "None")
 
                 st.markdown("### ❌ Missing Skills")
-                st.write(", ".join(item.get("missing_skills", [])) or "No missing skills")
+                st.write(", ".join(item.get("missing_skills", [])) or "None")
 
+                # ✅ FIX: unique keys added here
                 if item.get("cover_letter"):
-                    st.text_area("Cover Letter", item["cover_letter"], height=200)
+                    st.text_area(
+                        "Cover Letter",
+                        item["cover_letter"],
+                        height=200,
+                        key=f"cover_letter_{i}"
+                    )
 
                 if item.get("linkedin_summary"):
-                    st.text_area("LinkedIn Summary", item["linkedin_summary"], height=150)
+                    st.text_area(
+                        "LinkedIn Summary",
+                        item["linkedin_summary"],
+                        height=150,
+                        key=f"linkedin_{i}"
+                    )
 
                 if item.get("ai_insights"):
                     st.markdown("### 🤖 AI Insights")
@@ -220,7 +237,6 @@ def analysis_history():
 
     st.button("🚪 Logout", on_click=logout)
 
-
 # ==================================================
 # LOGIN / SIGNUP
 # ==================================================
@@ -229,6 +245,7 @@ def login_signup():
     menu = st.sidebar.selectbox("Menu", ["Login", "Sign Up"])
 
     if menu == "Sign Up":
+
         st.subheader("Create Account")
 
         email = st.text_input("Email")
@@ -237,12 +254,13 @@ def login_signup():
         if st.button("Sign Up"):
             try:
                 auth.create_user_with_email_and_password(email, password)
-                st.success("Account created successfully!")
+                st.success("Account created!")
             except Exception as e:
                 st.error(str(e))
 
     else:
-        st.subheader("Welcome Back")
+
+        st.subheader("Login")
 
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
@@ -262,7 +280,7 @@ def login_signup():
 
 
 # ==================================================
-# MAIN APP ROUTER
+# MAIN ROUTER
 # ==================================================
 if st.session_state.user:
 
@@ -283,6 +301,7 @@ if st.session_state.user:
         analysis_history()
 
     elif page == "Pricing":
+
         st.subheader("💰 Pricing Plans")
 
         col1, col2, col3 = st.columns(3)
@@ -291,33 +310,23 @@ if st.session_state.user:
             st.info("""
             ### Free
             ₹0/month
-
             ✓ 3 Analyses/day
-            ✓ ATS Score
-            ✓ Resume Match
             """)
 
         with col2:
             st.success("""
             ### Premium
             ₹199/month
-
             ✓ Unlimited Analyses
-            ✓ AI Resume Improvement
-            ✓ Interview Coach
-            ✓ Premium Reports
             """)
 
-            st.button("Upgrade to Premium")
+            st.button("Upgrade")
 
         with col3:
             st.warning("""
             ### Recruiter
             ₹999/month
-
-            ✓ Bulk Resume Screening
-            ✓ Candidate Ranking
-            ✓ Interview Questions
+            ✓ Bulk Screening
             """)
 
 else:
