@@ -46,32 +46,80 @@ def extract_skills(resume_text, jd_text):
 # ============================
 def generate_reasoning(score, matched, missing):
 
-    if score >= 70:
-        level = "Strong Match"
-        summary = "Good alignment with job requirements."
-    elif score >= 40:
-        level = "Moderate Match"
-        summary = "Partial match. Some key skills missing."
+    # -----------------------------
+    # 1. ROLE FIT LOGIC (UPGRADED)
+    # -----------------------------
+    if score >= 75:
+        level = "High Job Fit"
+        summary = "Strong alignment with job requirements."
+    elif score >= 50:
+        level = "Moderate Job Fit"
+        summary = "Good potential but skill gaps exist."
     else:
-        level = "Low Match"
-        summary = "Major skill gaps detected."
+        level = "Low Job Fit"
+        summary = "Significant gap between profile and role."
 
-    strengths = matched[:5] if matched else ["Basic technical exposure"]
-    gaps = missing[:5] if missing else ["No major gaps detected"]
+    # -----------------------------
+    # 2. GAP CLASSIFICATION (NEW)
+    # -----------------------------
+    critical_skills = {"numpy", "pandas", "scikit-learn", "tensorflow", "pytorch"}
+    important_skills = {"feature engineering", "api", "sql"}
 
-    if len(missing) > len(matched):
-        recommendation = "Focus on missing core ML and data skills."
+    critical_gaps = []
+    important_gaps = []
+    minor_gaps = []
+
+    for skill in missing:
+        if skill in critical_skills:
+            critical_gaps.append(skill)
+        elif skill in important_skills:
+            important_gaps.append(skill)
+        else:
+            minor_gaps.append(skill)
+
+    # -----------------------------
+    # 3. STRENGTH INTELLIGENCE (UPGRADED)
+    # -----------------------------
+    strengths = matched[:6] if matched else ["Basic technical exposure"]
+
+    # -----------------------------
+    # 4. SMART RECOMMENDATION ENGINE
+    # -----------------------------
+    if critical_gaps:
+        recommendation = "Prioritize learning core ML libraries (NumPy, Pandas, Scikit-learn) before applying."
+    elif important_gaps:
+        recommendation = "Improve feature engineering and API deployment skills for better job readiness."
+    elif len(matched) >= 5:
+        recommendation = "Start applying while building real ML projects."
     else:
-        recommendation = "Strengthen practical project experience."
+        recommendation = "Strengthen fundamentals and build hands-on projects."
 
+    # -----------------------------
+    # 5. CAREER INSIGHT (NEW LAYER)
+    # -----------------------------
+    if "python" in matched and len(critical_gaps) <= 2:
+        career_signal = "Strong transition candidate from IT to ML"
+    else:
+        career_signal = "Needs structured ML upskilling path"
+
+    # -----------------------------
+    # FINAL OUTPUT
+    # -----------------------------
     return {
         "level": level,
         "summary": summary,
-        "strengths": strengths,
-        "gaps": gaps,
-        "recommendation": recommendation
-    }
 
+        "strengths": strengths,
+
+        "critical_gaps": critical_gaps,
+        "important_gaps": important_gaps,
+        "minor_gaps": minor_gaps,
+
+        "recommendation": recommendation,
+
+        # 🔥 THIS IS YOUR HACKATHON DIFFERENTIATOR
+        "career_signal": career_signal
+    }
 # ============================
 # MAIN ANALYSIS ENGINE
 # ============================
