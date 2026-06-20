@@ -3,7 +3,39 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ============================
-# CLEAN TEXT FUNCTION
+# WEIGHTED SKILL DATABASE
+# ============================
+SKILLS_DB = {
+    "python": 3,
+    "numpy": 3,
+    "pandas": 3,
+    "scikit-learn": 3,
+    "tensorflow": 3,
+    "pytorch": 3,
+
+    "machine learning": 3,
+    "deep learning": 2,
+    "data analysis": 2,
+    "data cleaning": 2,
+    "feature engineering": 3,
+
+    "sql": 2,
+    "power bi": 2,
+    "tableau": 2,
+
+    "linux": 2,
+    "aws": 2,
+    "splunk": 1,
+    "api": 2,
+    "automation": 1
+}
+
+CRITICAL_SKILLS = {
+    "python", "numpy", "pandas", "scikit-learn", "machine learning"
+}
+
+# ============================
+# CLEAN TEXT
 # ============================
 def clean(text):
     text = text.lower()
@@ -12,89 +44,127 @@ def clean(text):
     return text
 
 # ============================
-# SKILL MATCHING (LIGHTWEIGHT)
+# SMART SKILL EXTRACTION
 # ============================
 def extract_skills(resume_text, jd_text):
-
     resume = clean(resume_text)
     jd = clean(jd_text)
 
-    jd_words = set(jd.split())
-    resume_words = set(resume.split())
+    matched = []
+    missing = []
+    weak_match = []
 
-    matched = list(jd_words & resume_words)
-    missing = list(jd_words - resume_words)
+    for skill in SKILLS_DB.keys():
+        if skill in jd:
+            if skill in resume:
+                matched.append(skill)
+            else:
+                missing.append(skill)
 
-    stop_words = {"and", "or", "the", "to", "of", "in", "a", "for", "on", "with"}
+    # detect weak profile (mentioned in resume but not JD important)
+    for skill in SKILLS_DB.keys():
+        if skill in resume and skill not in jd:
+            weak_match.append(skill)
 
-    matched = [w for w in matched if w not in stop_words]
-    missing = [w for w in missing if w not in stop_words]
-
-    return matched[:15], missing[:15]
+    return matched, missing, weak_match
 
 # ============================
-# REASONING LAYER (UPGRADED CORE)
+# AGENT REASONING ENGINE (UPGRADED)
 # ============================
-def generate_reasoning(score, matched, missing):
+def generate_agent_reasoning(score, matched, missing, weak_match):
 
-    if score >= 70:
-        level = "Strong Match"
-        summary = "High alignment with job requirements."
-    elif score >= 40:
-        level = "Moderate Match"
-        summary = "Partial alignment with job requirements."
+    critical_missing = [s for s in missing if s in CRITICAL_SKILLS]
+
+    # Level system
+    if score >= 75:
+        level = "Strong Fit (Hire Ready with Minor Gaps)"
+    elif score >= 50:
+        level = "Moderate Fit (Trainable Candidate)"
     else:
-        level = "Low Match"
-        summary = "Low alignment. Major skill gaps exist."
+        level = "Weak Fit (Needs Skill Building)"
 
-    strengths = matched[:5] if matched else ["Basic technical exposure"]
-    gaps = missing[:5] if missing else ["No critical gaps detected"]
+    # Recruiter perspective
+    recruiter_view = {
+        "summary": f"Candidate shows {level.lower()} with {len(matched)} matching skills.",
+        "risk": "Low" if len(critical_missing) == 0 else "High",
+        "decision_hint": "Recommend interview" if score >= 60 else "Needs upskilling first"
+    }
 
-    if len(missing) > len(matched):
-        recommendation = "Focus on learning missing core skills."
-    else:
-        recommendation = "Improve depth in existing skills and projects."
+    # Candidate perspective
+    candidate_view = {
+        "strengths": matched[:6] if matched else ["Basic technical exposure"],
+        "weaknesses": critical_missing[:6] if critical_missing else missing[:6],
+        "unused_skills": weak_match[:5]
+    }
+
+    # Improvement plan (THIS is your agent brain)
+    improvement_plan = []
+
+    if critical_missing:
+        improvement_plan.append("Learn core fundamentals: " + ", ".join(critical_missing))
+
+    if "pandas" in missing or "numpy" in missing:
+        improvement_plan.append("Practice data handling with Pandas + NumPy daily")
+
+    if "feature engineering" in missing:
+        improvement_plan.append("Build mini ML projects focusing on feature engineering")
+
+    improvement_plan.append("Build 2 real projects (end-to-end ML pipeline)")
+    improvement_plan.append("Add GitHub projects + deployment using Flask/FastAPI")
 
     return {
         "level": level,
-        "summary": summary,
-        "strengths": strengths,
-        "gaps": gaps,
-        "recommendation": recommendation
+        "recruiter_view": recruiter_view,
+        "candidate_view": candidate_view,
+        "improvement_plan": improvement_plan
     }
 
 # ============================
-# MAIN AI ENGINE
+# ATS SCORE (IMPROVED LOGIC)
 # ============================
-def analyze_resume(resume_text, job_description):
+def calculate_score(resume_text, jd_text):
 
     resume_clean = clean(resume_text)
-    jd_clean = clean(job_description)
+    jd_clean = clean(jd_text)
 
-    # ATS SCORE (TF-IDF similarity)
     vectorizer = TfidfVectorizer()
     vectors = vectorizer.fit_transform([resume_clean, jd_clean])
 
-    similarity = cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
-    score = round(similarity * 100, 2)
+    base_score = cosine_similarity(vectors[0:1], vectors[1:2])[0][0] * 100
 
-    # SKILLS
-    matched, missing = extract_skills(resume_text, job_description)
+    matched, missing, weak = extract_skills(resume_text, jd_text)
 
-    # REASONING LAYER
-    reasoning = generate_reasoning(score, matched, missing)
+    # skill bonus system
+    skill_score = 0
+    for skill in matched:
+        skill_score += SKILLS_DB.get(skill, 1) * 2
+
+    final_score = (base_score * 0.6) + (skill_score * 2)
+
+    return round(min(final_score, 100), 2)
+
+# ============================
+# MAIN FUNCTION
+# ============================
+def analyze_resume(resume_text, job_description):
+
+    score = calculate_score(resume_text, job_description)
+
+    matched, missing, weak_match = extract_skills(resume_text, job_description)
+
+    reasoning = generate_agent_reasoning(score, matched, missing, weak_match)
 
     return {
         "score": score,
         "matched": matched,
         "missing": missing,
 
-        # 🔥 HACKATHON UPGRADE OUTPUT
+        # 🔥 AGENT UPGRADE OUTPUT
         "reasoning": reasoning,
 
-        # simple outputs (keep your UI stable)
         "cover_letter": "Generated by AI module",
         "linkedin_summary": "Generated by AI module",
+
         "interview_questions": [
             "Explain your experience in Linux troubleshooting",
             "How do you handle system incidents?",
