@@ -14,6 +14,13 @@ from backend_db import (
 
 from gemini_engine import generate_ai_content
 from pdf_generator import generate_pdf
+from user_plan import can_use_service
+from backend_db import (
+    increment_usage,
+    save_analysis,
+    get_user_history,
+    get_dashboard_stats
+)
 
 
 # ==================================================
@@ -53,6 +60,16 @@ def logout():
 def dashboard():
     st.subheader("📊 Dashboard")
 
+    try:
+        allowed, message = can_use_service(
+            st.session_state.user_email
+        )
+
+        st.info(message)
+
+    except:
+        pass
+
     stats = get_dashboard_stats(st.session_state.user_email)
 
     col1, col2, col3 = st.columns(3)
@@ -85,23 +102,59 @@ def dashboard():
 # ==================================================
 def resume_analysis():
 
-    uploaded_file = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
-    job_description = st.text_area("Paste Job Description")
+    uploaded_file = st.file_uploader(
+        "Upload Resume (PDF)",
+        type=["pdf"],
+        key="resume_upload"
+    )
+
+    job_description = st.text_area(
+        "Paste Job Description",
+        key="job_description_input"
+    )
 
     if uploaded_file and job_description.strip():
 
-        resume_text = extract_text_from_pdf(uploaded_file)
+    # Check Free/Premium limits
+        allowed, message = can_use_service(
+        st.session_state.user_email
+    )
+
+        if not allowed:
+            st.error(message)
+            st.stop()
+
+        with st.spinner("Extracting resume..."):
+            resume_text = extract_text_from_pdf(uploaded_file)
 
         st.subheader("Extracted Resume")
-        st.text_area("Resume Text", resume_text, height=250)
 
-        result = analyze_resume(resume_text, job_description)
+        st.text_area(
+            "Resume Text",
+            resume_text,
+            height=250,
+            key="resume_text_output"
+        )
+
+        with st.spinner("Running ATS Analysis..."):
+            result = analyze_resume(
+                resume_text,
+                job_description
+            )
 
         try:
             with st.spinner("Generating AI insights..."):
-                gemini_output = generate_ai_content(resume_text, job_description)
+                gemini_output = generate_ai_content(
+                    resume_text,
+                    job_description
+                )
+
         except Exception as e:
-            gemini_output = f"Gemini error: {str(e)}"
+
+            gemini_output = (
+                f"⚠️ Gemini AI temporarily unavailable.\n\n"
+                f"Error: {str(e)}"
+            )
 
         # ================= OUTPUT =================
         st.subheader("🤖 Gemini AI Insights")
@@ -178,6 +231,10 @@ def resume_analysis():
                 cover_letter=result["cover_letter"],
                 linkedin_summary=result["linkedin_summary"],
                 ai_insights=gemini_output,
+            )
+
+            increment_usage(
+                st.session_state.user_email
             )
 
             st.success("Saved successfully!")
@@ -320,7 +377,10 @@ if st.session_state.user:
             ✓ Unlimited Analyses
             """)
 
-            st.button("Upgrade")
+            if st.button("🚀 Upgrade to Premium"):
+                st.info(
+                    "Payment integration coming soon."
+                )
 
         with col3:
             st.warning("""
