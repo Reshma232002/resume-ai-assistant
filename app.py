@@ -12,8 +12,12 @@ from backend_db import (
     increment_usage,
     save_analysis,
     get_user_history,
-    get_dashboard_stats
+    get_dashboard_stats,
+    reset_daily_usage_if_needed
 )
+
+from payment import create_order, verify_payment, upgrade_user
+import streamlit.components.v1 as components
 
 
 # ==================================================
@@ -51,17 +55,9 @@ def logout():
 # DASHBOARD
 # ==================================================
 def dashboard():
+    reset_daily_usage_if_needed(st.session_state.user_email)
+
     st.subheader("📊 Dashboard")
-
-    try:
-        allowed, message = can_use_service(
-            st.session_state.user_email
-        )
-
-        st.info(message)
-
-    except:
-        pass
 
     stats = get_dashboard_stats(st.session_state.user_email)
 
@@ -94,24 +90,14 @@ def dashboard():
 # RESUME ANALYSIS
 # ==================================================
 def resume_analysis():
+    reset_daily_usage_if_needed(st.session_state.user_email)
 
-    uploaded_file = st.file_uploader(
-        "Upload Resume (PDF)",
-        type=["pdf"],
-        key="resume_upload"
-    )
-
-    job_description = st.text_area(
-        "Paste Job Description",
-        key="job_description_input"
-    )
+    uploaded_file = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
+    job_description = st.text_area("Paste Job Description")
 
     if uploaded_file and job_description.strip():
 
-    # Check Free/Premium limits
-        allowed, message = can_use_service(
-        st.session_state.user_email
-    )
+        allowed, message = can_use_service(st.session_state.user_email)
 
         if not allowed:
             st.error(message)
@@ -121,36 +107,18 @@ def resume_analysis():
             resume_text = extract_text_from_pdf(uploaded_file)
 
         st.subheader("Extracted Resume")
-
-        st.text_area(
-            "Resume Text",
-            resume_text,
-            height=250,
-            key="resume_text_output"
-        )
+        st.text_area("Resume Text", resume_text, height=250)
 
         with st.spinner("Running ATS Analysis..."):
-            result = analyze_resume(
-                resume_text,
-                job_description
-            )
+            result = analyze_resume(resume_text, job_description)
 
         try:
             with st.spinner("Generating AI insights..."):
-                gemini_output = generate_ai_content(
-                    resume_text,
-                    job_description
-                )
-
+                gemini_output = generate_ai_content(resume_text, job_description)
         except Exception as e:
+            gemini_output = f"AI error: {str(e)}"
 
-            gemini_output = (
-                f"⚠️ Gemini AI temporarily unavailable.\n\n"
-                f"Error: {str(e)}"
-            )
-
-        # ================= OUTPUT =================
-        st.subheader("🤖 Gemini AI Insights")
+        st.subheader("Gemini AI Insights")
         st.markdown(gemini_output)
 
         st.subheader("ATS Score")
@@ -163,14 +131,8 @@ def resume_analysis():
         st.subheader("Missing Skills")
         st.write(result["missing"])
 
-        # FIXED: unique keys (NO index bug)
         st.subheader("Cover Letter")
-        st.text_area(
-            "Cover Letter",
-            result["cover_letter"],
-            height=220,
-            key="cover_letter_main"
-        )
+        st.text_area("Cover Letter", result["cover_letter"], height=200)
 
         st.download_button(
             "Download Cover Letter",
@@ -183,14 +145,8 @@ def resume_analysis():
             st.write(f"{i+1}. {q}")
 
         st.subheader("LinkedIn Summary")
-        st.text_area(
-            "LinkedIn Summary",
-            result["linkedin_summary"],
-            height=180,
-            key="linkedin_main"
-        )
+        st.text_area("LinkedIn Summary", result["linkedin_summary"], height=150)
 
-        # ================= PDF =================
         pdf_path = "resume_report.pdf"
 
         generate_pdf(
@@ -205,15 +161,13 @@ def resume_analysis():
 
         with open(pdf_path, "rb") as pdf_file:
             st.download_button(
-                "📄 Download AI Report (PDF)",
+                "Download AI Report (PDF)",
                 data=pdf_file,
                 file_name="AI_Resume_Report.pdf",
                 mime="application/pdf",
             )
 
-        # ================= SAVE =================
         if st.button("💾 Save Analysis"):
-
             save_analysis(
                 user_email=st.session_state.user_email,
                 resume_text=resume_text,
@@ -226,13 +180,10 @@ def resume_analysis():
                 ai_insights=gemini_output,
             )
 
-            increment_usage(
-                st.session_state.user_email
-            )
-
+            increment_usage(st.session_state.user_email)
             st.success("Saved successfully!")
 
-    st.button("🚪 Logout", on_click=logout)
+    st.button("Logout", on_click=logout)
 
 
 # ==================================================
@@ -240,52 +191,32 @@ def resume_analysis():
 # ==================================================
 def analysis_history():
 
-    st.subheader("📜 Previous Analyses")
+    st.subheader("Previous Analyses")
 
     history = get_user_history(st.session_state.user_email)
 
     if history:
+        for i, item in enumerate(history, 1):
 
-        for i, item in enumerate(history, start=1):
-
-            with st.expander(
-                f"📄 Analysis {i} | ATS Score: {item.get('ats_score', 0)}",
-                expanded=False
-            ):
+            with st.expander(f"Analysis {i} | ATS: {item.get('ats_score', 0)}"):
 
                 st.metric("ATS Score", f"{item.get('ats_score', 0)} / 100")
 
-                st.markdown("### ✅ Matched Skills")
-                st.write(", ".join(item.get("matched_skills", [])) or "None")
+                st.write("Matched:", item.get("matched_skills", []))
+                st.write("Missing:", item.get("missing_skills", []))
 
-                st.markdown("### ❌ Missing Skills")
-                st.write(", ".join(item.get("missing_skills", [])) or "None")
-
-                # ✅ FIX: unique keys added here
                 if item.get("cover_letter"):
-                    st.text_area(
-                        "Cover Letter",
-                        item["cover_letter"],
-                        height=200,
-                        key=f"cover_letter_{i}"
-                    )
+                    st.text_area("Cover Letter", item["cover_letter"], key=f"cl_{i}")
 
                 if item.get("linkedin_summary"):
-                    st.text_area(
-                        "LinkedIn Summary",
-                        item["linkedin_summary"],
-                        height=150,
-                        key=f"linkedin_{i}"
-                    )
+                    st.text_area("LinkedIn", item["linkedin_summary"], key=f"li_{i}")
 
                 if item.get("ai_insights"):
-                    st.markdown("### 🤖 AI Insights")
                     st.markdown(item["ai_insights"])
 
     else:
-        st.info("No saved analyses found.")
+        st.info("No saved analyses.")
 
-    st.button("🚪 Logout", on_click=logout)
 
 # ==================================================
 # LOGIN / SIGNUP
@@ -295,9 +226,6 @@ def login_signup():
     menu = st.sidebar.selectbox("Menu", ["Login", "Sign Up"])
 
     if menu == "Sign Up":
-
-        st.subheader("Create Account")
-
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
 
@@ -306,26 +234,20 @@ def login_signup():
                 auth.create_user_with_email_and_password(email, password)
                 st.success("Account created!")
             except Exception as e:
-                st.error(str(e))
+                st.error(e)
 
     else:
-
-        st.subheader("Login")
-
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
 
         if st.button("Login"):
             try:
                 user = auth.sign_in_with_email_and_password(email, password)
-
                 st.session_state.user = user
                 st.session_state.user_email = email
-
                 st.success("Login successful!")
                 st.rerun()
-
-            except Exception:
+            except:
                 st.error("Invalid credentials")
 
 
@@ -352,35 +274,47 @@ if st.session_state.user:
 
     elif page == "Pricing":
 
-        st.subheader("💰 Pricing Plans")
+        st.subheader("Pricing Plans")
 
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.info("""
-            ### Free
-            ₹0/month
-            ✓ 3 Analyses/day
-            """)
+            st.info("Free: 1 analysis/day")
 
         with col2:
-            st.success("""
-            ### Premium
-            ₹199/month
-            ✓ Unlimited Analyses
-            """)
+            st.success("Premium ₹99/month")
 
-            if st.button("🚀 Upgrade to Premium"):
-                st.info(
-                    "Payment integration coming soon."
-                )
+            if st.button("Pay ₹99 Premium"):
+                order = create_order(99)
+
+                checkout_html = f"""
+                <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+                <script>
+                var options = {{
+                    "key": "{st.secrets["RAZORPAY_KEY_ID"]}",
+                    "amount": "9900",
+                    "currency": "INR",
+                    "order_id": "{order['id']}",
+
+                    "handler": function (response) {{
+                        window.parent.postMessage({{
+                            order_id: "{order['id']}",
+                            payment_id: response.razorpay_payment_id,
+                            signature: response.razorpay_signature
+                        }}, "*");
+                    }}
+                }};
+
+                var rzp = new Razorpay(options);
+                rzp.open();
+                </script>
+                """
+
+                components.html(checkout_html, height=300)
 
         with col3:
-            st.warning("""
-            ### Recruiter
-            ₹999/month
-            ✓ Bulk Screening
-            """)
+            st.warning("Recruiter ₹299/month")
 
 else:
     login_signup()
