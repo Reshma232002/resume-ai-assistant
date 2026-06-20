@@ -5,13 +5,6 @@ import plotly.express as px
 from firebase_config import auth
 from pdf_utils import extract_text_from_pdf
 from ai_engine import analyze_resume
-
-from backend_db import (
-    save_analysis,
-    get_user_history,
-    get_dashboard_stats
-)
-
 from gemini_engine import generate_ai_content
 from pdf_generator import generate_pdf
 from user_plan import can_use_service
