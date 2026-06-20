@@ -3,18 +3,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ============================
-# SIMPLE SKILL DATABASE
-# ============================
-SKILLS_DB = {
-    "python", "numpy", "pandas", "scikit-learn",
-    "tensorflow", "pytorch",
-    "machine learning", "data cleaning",
-    "feature engineering",
-    "sql", "power bi", "tableau",
-    "linux", "aws", "api"
-}
-
-# ============================
 # CLEAN TEXT FUNCTION
 # ============================
 def clean(text):
@@ -24,120 +12,73 @@ def clean(text):
     return text
 
 # ============================
-# SKILL EXTRACTION
+# SKILL MATCHING (LIGHTWEIGHT)
 # ============================
 def extract_skills(resume_text, jd_text):
+
     resume = clean(resume_text)
     jd = clean(jd_text)
 
-    matched = []
-    missing = []
+    jd_words = set(jd.split())
+    resume_words = set(resume.split())
 
-    for skill in SKILLS_DB:
-        if skill in resume and skill in jd:
-            matched.append(skill)
-        elif skill in jd and skill not in resume:
-            missing.append(skill)
+    matched = list(jd_words & resume_words)
+    missing = list(jd_words - resume_words)
 
-    return matched, missing
+    stop_words = {"and", "or", "the", "to", "of", "in", "a", "for", "on", "with"}
+
+    matched = [w for w in matched if w not in stop_words]
+    missing = [w for w in missing if w not in stop_words]
+
+    return matched[:15], missing[:15]
 
 # ============================
 # REASONING LAYER (UPGRADED CORE)
 # ============================
 def generate_reasoning(score, matched, missing):
 
-    # -----------------------------
-    # 1. ROLE FIT LOGIC (UPGRADED)
-    # -----------------------------
-    if score >= 75:
-        level = "High Job Fit"
-        summary = "Strong alignment with job requirements."
-    elif score >= 50:
-        level = "Moderate Job Fit"
-        summary = "Good potential but skill gaps exist."
+    if score >= 70:
+        level = "Strong Match"
+        summary = "High alignment with job requirements."
+    elif score >= 40:
+        level = "Moderate Match"
+        summary = "Partial alignment with job requirements."
     else:
-        level = "Low Job Fit"
-        summary = "Significant gap between profile and role."
+        level = "Low Match"
+        summary = "Low alignment. Major skill gaps exist."
 
-    # -----------------------------
-    # 2. GAP CLASSIFICATION (NEW)
-    # -----------------------------
-    critical_skills = {"numpy", "pandas", "scikit-learn", "tensorflow", "pytorch"}
-    important_skills = {"feature engineering", "api", "sql"}
+    strengths = matched[:5] if matched else ["Basic technical exposure"]
+    gaps = missing[:5] if missing else ["No critical gaps detected"]
 
-    critical_gaps = []
-    important_gaps = []
-    minor_gaps = []
-
-    for skill in missing:
-        if skill in critical_skills:
-            critical_gaps.append(skill)
-        elif skill in important_skills:
-            important_gaps.append(skill)
-        else:
-            minor_gaps.append(skill)
-
-    # -----------------------------
-    # 3. STRENGTH INTELLIGENCE (UPGRADED)
-    # -----------------------------
-    strengths = matched[:6] if matched else ["Basic technical exposure"]
-
-    # -----------------------------
-    # 4. SMART RECOMMENDATION ENGINE
-    # -----------------------------
-    if critical_gaps:
-        recommendation = "Prioritize learning core ML libraries (NumPy, Pandas, Scikit-learn) before applying."
-    elif important_gaps:
-        recommendation = "Improve feature engineering and API deployment skills for better job readiness."
-    elif len(matched) >= 5:
-        recommendation = "Start applying while building real ML projects."
+    if len(missing) > len(matched):
+        recommendation = "Focus on learning missing core skills."
     else:
-        recommendation = "Strengthen fundamentals and build hands-on projects."
+        recommendation = "Improve depth in existing skills and projects."
 
-    # -----------------------------
-    # 5. CAREER INSIGHT (NEW LAYER)
-    # -----------------------------
-    if "python" in matched and len(critical_gaps) <= 2:
-        career_signal = "Strong transition candidate from IT to ML"
-    else:
-        career_signal = "Needs structured ML upskilling path"
-
-    # -----------------------------
-    # FINAL OUTPUT
-    # -----------------------------
     return {
         "level": level,
         "summary": summary,
-
         "strengths": strengths,
-
-        "critical_gaps": critical_gaps,
-        "important_gaps": important_gaps,
-        "minor_gaps": minor_gaps,
-
-        "recommendation": recommendation,
-
-        # 🔥 THIS IS YOUR HACKATHON DIFFERENTIATOR
-        "career_signal": career_signal
+        "gaps": gaps,
+        "recommendation": recommendation
     }
+
 # ============================
-# MAIN ANALYSIS ENGINE
+# MAIN AI ENGINE
 # ============================
 def analyze_resume(resume_text, job_description):
 
     resume_clean = clean(resume_text)
     jd_clean = clean(job_description)
 
-    # ATS SCORE
+    # ATS SCORE (TF-IDF similarity)
     vectorizer = TfidfVectorizer()
     vectors = vectorizer.fit_transform([resume_clean, jd_clean])
 
-    score = round(
-        cosine_similarity(vectors[0:1], vectors[1:2])[0][0] * 100,
-        2
-    )
+    similarity = cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
+    score = round(similarity * 100, 2)
 
-    # SKILL MATCH
+    # SKILLS
     matched, missing = extract_skills(resume_text, job_description)
 
     # REASONING LAYER
@@ -148,9 +89,10 @@ def analyze_resume(resume_text, job_description):
         "matched": matched,
         "missing": missing,
 
-        # 🔥 NEW UPGRADE FOR HACKATHON
+        # 🔥 HACKATHON UPGRADE OUTPUT
         "reasoning": reasoning,
 
+        # simple outputs (keep your UI stable)
         "cover_letter": "Generated by AI module",
         "linkedin_summary": "Generated by AI module",
         "interview_questions": [
