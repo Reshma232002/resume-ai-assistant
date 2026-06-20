@@ -128,3 +128,8 @@ def reset_daily_usage_if_needed(user_email):
             "daily_usage": 0,
             "last_reset": today
         }, merge=True)    
+def get_user_plan_from_db(user_email):
+    data = db.collection("users").document(user_email).get().to_dict()
+    if data:
+        return data.get("plan", "free")
+    return "free"        
