@@ -82,28 +82,49 @@ def get_dashboard_stats(user_email):
         "avg_score": round(sum(scores) / len(scores), 2),
         "max_score": max(scores)
     }
-def get_user_usage(user_email):
-
-    doc_ref = db.collection("users").document(user_email)
-
+def get_user_doc(user_email):
+    doc_ref = db.collection("users").document(user_email.replace(".", "_"))
     doc = doc_ref.get()
+    return doc.to_dict() if doc.exists else {}
 
-    if doc.exists:
-        data = doc.to_dict()
-        return data.get("daily_usage", 0)
 
-    return 0
+def get_user_usage(user_email):
+    user_doc = get_user_doc(user_email)
+    return user_doc.get("daily_usage", 0)
 
 
 def increment_usage(user_email):
+    user_ref = db.collection("users").document(user_email.replace(".", "_"))
 
-    doc_ref = db.collection("users").document(user_email)
+    user_doc = user_ref.get()
 
-    current_usage = get_user_usage(user_email)
+    if user_doc.exists:
+        current = user_doc.to_dict().get("daily_usage", 0)
+    else:
+        current = 0
 
-    doc_ref.set(
-        {
-            "daily_usage": current_usage + 1
-        },
-        merge=True
+    user_ref.set({
+        "daily_usage": current + 1
+    }, merge=True)
+
+def reset_daily_usage_if_needed(user_email):
+
+    user_ref = db.collection("users").document(
+        user_email.replace(".", "_")
     )
+
+    user = user_ref.get().to_dict()
+
+    if not user:
+        return
+
+    last_reset = user.get("last_reset")
+
+    today = datetime.now().date().isoformat()
+
+    # If never reset or new day → reset usage
+    if last_reset != today:
+        user_ref.set({
+            "daily_usage": 0,
+            "last_reset": today
+        }, merge=True)    
