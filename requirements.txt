@@ -7,3 +7,4 @@ pypdf
 google-generativeai
 firebase-admin
 pyrebase4
+pymupdf
