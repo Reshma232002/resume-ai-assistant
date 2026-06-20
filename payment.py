@@ -2,13 +2,12 @@ import razorpay
 import streamlit as st
 import hmac
 import hashlib
+from backend_db import db
 
 
+# Razorpay client
 client = razorpay.Client(
-    auth=(
-        st.secrets["RAZORPAY_KEY_ID"],
-        st.secrets["RAZORPAY_SECRET"]
-    )
+    auth=(st.secrets["RAZORPAY_KEY_ID"], st.secrets["RAZORPAY_KEY_SECRET"])
 )
 
 
@@ -16,7 +15,6 @@ client = razorpay.Client(
 # CREATE ORDER
 # =========================
 def create_order(amount):
-
     return client.order.create({
         "amount": amount * 100,
         "currency": "INR",
@@ -25,43 +23,30 @@ def create_order(amount):
 
 
 # =========================
-# VERIFY PAYMENT (REAL)
+# VERIFY PAYMENT
 # =========================
-def verify_payment(payment_id, order_id, signature):
+def verify_payment(order_id, payment_id, signature):
+
+    secret = st.secrets["RAZORPAY_KEY_SECRET"]
+
+    msg = f"{order_id}|{payment_id}"
 
     generated_signature = hmac.new(
-        bytes(st.secrets["RAZORPAY_SECRET"], "utf-8"),
-        bytes(f"{order_id}|{payment_id}", "utf-8"),
+        secret.encode(),
+        msg.encode(),
         hashlib.sha256
     ).hexdigest()
 
-    return hmac.compare_digest(generated_signature, signature)
+    return generated_signature == signature
 
 
 # =========================
-# FETCH PAYMENT FROM RAZORPAY (IMPORTANT REAL CHECK)
+# UPGRADE USER
 # =========================
-def fetch_payment(payment_id):
-    return client.payment.fetch(payment_id)
+def upgrade_user(user_email, plan="premium"):
 
+    user_ref = db.collection("users").document(user_email.replace(".", "_"))
 
-# =========================
-# FINAL VALIDATION (PRODUCTION SAFE)
-# =========================
-def validate_payment(payment_id, order_id, signature, expected_amount):
-
-    # 1. Verify signature
-    if not verify_payment(payment_id, order_id, signature):
-        return False
-
-    # 2. Fetch real payment from Razorpay server
-    payment = fetch_payment(payment_id)
-
-    if payment["status"] != "captured":
-        return False
-
-    # 3. Amount check (VERY IMPORTANT)
-    if payment["amount"] != expected_amount * 100:
-        return False
-
-    return True
+    user_ref.set({
+        "plan": plan
+    }, merge=True)
