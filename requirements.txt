@@ -1,3 +1,9 @@
 streamlit
-google-genai
+pandas
+plotly
+scikit-learn
+reportlab
 pypdf
+google-generativeai
+firebase-admin
+pyrebase4
