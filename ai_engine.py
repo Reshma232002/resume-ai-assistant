@@ -3,21 +3,19 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ============================
-# SKILL DATABASE (REAL SKILLS ONLY)
+# SIMPLE SKILL DATABASE
 # ============================
 SKILLS_DB = {
     "python", "numpy", "pandas", "scikit-learn",
     "tensorflow", "pytorch",
-    "machine learning", "deep learning",
-    "data analysis", "data cleaning",
+    "machine learning", "data cleaning",
     "feature engineering",
     "sql", "power bi", "tableau",
-    "linux", "aws", "splunk",
-    "excel", "api", "automation"
+    "linux", "aws", "api"
 }
 
 # ============================
-# CLEAN TEXT
+# CLEAN TEXT FUNCTION
 # ============================
 def clean(text):
     text = text.lower()
@@ -26,10 +24,9 @@ def clean(text):
     return text
 
 # ============================
-# SKILL MATCHING
+# SKILL EXTRACTION
 # ============================
 def extract_skills(resume_text, jd_text):
-
     resume = clean(resume_text)
     jd = clean(jd_text)
 
@@ -45,92 +42,57 @@ def extract_skills(resume_text, jd_text):
     return matched, missing
 
 # ============================
-# REASONING ENGINE (UPGRADED FOR HACKATHON)
+# REASONING LAYER (UPGRADED CORE)
 # ============================
 def generate_reasoning(score, matched, missing):
 
-    # ---------------------------
-    # MATCH LEVEL
-    # ---------------------------
     if score >= 70:
-        level = "High Match"
-        summary = "Your profile strongly aligns with most of the job requirements."
-        hiring_signal = "Shortlist Ready"
+        level = "Strong Match"
+        summary = "Good alignment with job requirements."
     elif score >= 40:
         level = "Moderate Match"
-        summary = "Your profile partially matches the job requirements with some key gaps."
-        hiring_signal = "Needs Skill Improvement"
+        summary = "Partial match. Some key skills missing."
     else:
         level = "Low Match"
-        summary = "Your profile does not strongly match this role yet."
-        hiring_signal = "Not Job Ready"
+        summary = "Major skill gaps detected."
 
-    # ---------------------------
-    # STRENGTHS
-    # ---------------------------
-    strengths = matched[:6] if matched else ["Basic technical exposure in IT systems"]
+    strengths = matched[:5] if matched else ["Basic technical exposure"]
+    gaps = missing[:5] if missing else ["No major gaps detected"]
 
-    # ---------------------------
-    # GAPS
-    # ---------------------------
-    gaps = missing[:6] if missing else ["No major technical gaps detected"]
-
-    # ---------------------------
-    # PRIORITY LEARNING
-    # ---------------------------
-    priority_learning = missing[:3] if missing else []
-
-    # ---------------------------
-    # INSIGHT (AI STYLE EXPLANATION)
-    # ---------------------------
-    insight = (
-        f"The ATS score is mainly influenced by {len(matched)} matched skills "
-        f"and {len(missing)} missing key job requirements. "
-        "Improving core missing skills will significantly increase job compatibility."
-    )
-
-    # ---------------------------
-    # FOCUS NOTE
-    # ---------------------------
     if len(missing) > len(matched):
-        focus_note = "Prioritize core technical skills before advanced topics."
+        recommendation = "Focus on missing core ML and data skills."
     else:
-        focus_note = "Strengthen real-world projects to enhance job readiness."
+        recommendation = "Strengthen practical project experience."
 
     return {
         "level": level,
         "summary": summary,
-        "hiring_signal": hiring_signal,
-
         "strengths": strengths,
         "gaps": gaps,
-
-        "priority_learning": priority_learning,
-        "focus_note": focus_note,
-        "insight": insight,
-
-        "recommendation": "Build 1–2 hands-on projects using missing skills to improve job readiness."
+        "recommendation": recommendation
     }
 
 # ============================
-# MAIN FUNCTION
+# MAIN ANALYSIS ENGINE
 # ============================
 def analyze_resume(resume_text, job_description):
 
     resume_clean = clean(resume_text)
     jd_clean = clean(job_description)
 
-    # ATS SCORE (TF-IDF)
+    # ATS SCORE
     vectorizer = TfidfVectorizer()
     vectors = vectorizer.fit_transform([resume_clean, jd_clean])
 
-    similarity = cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
-    score = round(similarity * 100, 2)
+    score = round(
+        cosine_similarity(vectors[0:1], vectors[1:2])[0][0] * 100,
+        2
+    )
 
-    # SKILLS
+    # SKILL MATCH
     matched, missing = extract_skills(resume_text, job_description)
 
-    # REASONING LAYER (UPGRADED)
+    # REASONING LAYER
     reasoning = generate_reasoning(score, matched, missing)
 
     return {
@@ -138,12 +100,11 @@ def analyze_resume(resume_text, job_description):
         "matched": matched,
         "missing": missing,
 
-        # HACKATHON AI LAYER
+        # 🔥 NEW UPGRADE FOR HACKATHON
         "reasoning": reasoning,
 
         "cover_letter": "Generated by AI module",
         "linkedin_summary": "Generated by AI module",
-
         "interview_questions": [
             "Explain your experience in Linux troubleshooting",
             "How do you handle system incidents?",
