@@ -82,3 +82,28 @@ def get_dashboard_stats(user_email):
         "avg_score": round(sum(scores) / len(scores), 2),
         "max_score": max(scores)
     }
+def get_user_usage(user_email):
+
+    doc_ref = db.collection("users").document(user_email)
+
+    doc = doc_ref.get()
+
+    if doc.exists:
+        data = doc.to_dict()
+        return data.get("daily_usage", 0)
+
+    return 0
+
+
+def increment_usage(user_email):
+
+    doc_ref = db.collection("users").document(user_email)
+
+    current_usage = get_user_usage(user_email)
+
+    doc_ref.set(
+        {
+            "daily_usage": current_usage + 1
+        },
+        merge=True
+    )
