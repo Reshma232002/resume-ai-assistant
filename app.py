@@ -123,7 +123,7 @@ def resume_analysis():
         st.write(result["missing"])
 
         st.subheader("Cover Letter")
-        st.text_area("Cover Letter", result["cover_letter"], height=220)
+        st.text_area("Cover Letter", result["cover_letter"], height=220,key=f"cover_letter_{index}")
 
         st.download_button(
             "Download Cover Letter",
@@ -136,7 +136,7 @@ def resume_analysis():
             st.write(f"• {q}")
 
         st.subheader("LinkedIn Summary")
-        st.text_area("LinkedIn Summary", result["linkedin_summary"], height=180)
+        st.text_area("LinkedIn Summary", result["linkedin_summary"], height=180,key=f"linkedin_{index}")
 
         # ======================
         # PDF REPORT
@@ -194,7 +194,8 @@ def analysis_history():
     if history:
         for i, item in enumerate(history, start=1):
 
-            with st.expander(f"📄 Analysis {i} | ATS Score: {item.get('ats_score', 0)}"):
+            with st.expander(f"📄 Analysis {i} | ATS Score: {item.get('ats_score', 0)}",expanded=False):
+            
 
                 st.metric("ATS Score", f"{item.get('ats_score', 0)} / 100")
 
