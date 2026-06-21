@@ -1,25 +1,40 @@
-import razorpay
+ import razorpay
 import streamlit as st
 import hmac
 import hashlib
 from backend_db import db
 
 
-# Razorpay client
-client = razorpay.Client(
-    auth=(st.secrets["RAZORPAY_KEY_ID"], st.secrets["RAZORPAY_KEY_SECRET"])
-)
+# =========================
+# SAFE CLIENT INIT
+# =========================
+def get_client():
+    return razorpay.Client(
+        auth=(
+            st.secrets["RAZORPAY_KEY_ID"],
+            st.secrets["RAZORPAY_KEY_SECRET"]
+        )
+    )
 
 
 # =========================
 # CREATE ORDER
 # =========================
 def create_order(amount):
-    return client.order.create({
-        "amount": amount * 100,
-        "currency": "INR",
-        "payment_capture": 1
-    })
+    try:
+        order = client.order.create({
+            "amount": int(amount * 100),
+            "currency": "INR"
+        })
+
+        return order
+
+    except Exception as e:
+        import streamlit as st
+
+        st.error(f"Razorpay Error: {str(e)}")
+
+        raise
 
 
 # =========================
