@@ -13,7 +13,8 @@ from backend_db import (
     save_analysis,
     get_user_history,
     get_dashboard_stats,
-    reset_daily_usage_if_needed
+    reset_daily_usage_if_needed,
+    create_user_if_not_exists
 )
 
 from payment import create_order, verify_payment, upgrade_user
@@ -250,9 +251,14 @@ def login_signup():
                 )
 
                 st.session_state.user = user
-                st.session_state.user_email = email
+                st.session_state.user_email = email.strip()
 
-                st.rerun()
+                # Create user document in Firestore
+                create_user_if_not_exists(email.strip())
+
+                st.success("Login successful!")
+
+                st.rerun()   
 
             except Exception as e:
                 st.error(f"Login failed: {str(e)}")
@@ -264,6 +270,8 @@ def login_signup():
 if st.session_state.user:
 
     st.success(f"Logged in as: {st.session_state.user_email}")
+    if st.sidebar.button("Logout"):
+        logout()
 
     page = st.sidebar.radio(
         "Navigation",
