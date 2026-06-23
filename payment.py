@@ -57,7 +57,9 @@ def verify_payment(order_id, payment_id, signature):
 # =====================================
 def upgrade_user(user_email, plan):
 
-    user_ref = db.collection("users").document(user_email)
+    user_ref = db.collection("users").document(
+        user_email.replace(".", "_")
+    )
 
     user_ref.set(
         {
