@@ -104,7 +104,9 @@ def get_dashboard_stats(user_email):
 # ======================================
 def get_user_doc(user_email):
 
-    doc_ref = db.collection("users").document(user_email)
+    doc_ref = db.collection("users").document(
+        user_email.replace(".", "_")
+    )
 
     doc = doc_ref.get()
 
@@ -113,7 +115,9 @@ def get_user_doc(user_email):
 
 def get_user_usage(user_email):
 
-    user_ref = db.collection("users").document(user_email)
+    user_doc = get_user_doc(user_email)
+
+    return int(user_doc.get("daily_usage", 0))
 
 
 def increment_usage(user_email):
@@ -155,7 +159,9 @@ def increment_usage(user_email):
 # ======================================
 def reset_daily_usage_if_needed(user_email):
 
-    user_ref = db.collection("users").document(user_email)
+    user_ref = db.collection("users").document(
+    user_email.replace(".", "_")
+)
 
     user_doc = user_ref.get()
 
