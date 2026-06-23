@@ -1,4 +1,4 @@
- import razorpay
+import razorpay
 import streamlit as st
 import hmac
 import hashlib
@@ -21,6 +21,9 @@ def get_client():
 # CREATE ORDER
 # =========================
 def create_order(amount):
+
+    client = get_client()
+
     try:
         order = client.order.create({
             "amount": int(amount * 100),
@@ -30,10 +33,7 @@ def create_order(amount):
         return order
 
     except Exception as e:
-        import streamlit as st
-
         st.error(f"Razorpay Error: {str(e)}")
-
         raise
 
 
@@ -60,8 +60,13 @@ def verify_payment(order_id, payment_id, signature):
 # =========================
 def upgrade_user(user_email, plan="premium"):
 
-    user_ref = db.collection("users").document(user_email.replace(".", "_"))
+    user_ref = db.collection("users").document(
+        user_email.replace(".", "_")
+    )
 
-    user_ref.set({
-        "plan": plan
-    }, merge=True)
+    user_ref.set(
+        {
+            "plan": plan
+        },
+        merge=True
+    )
