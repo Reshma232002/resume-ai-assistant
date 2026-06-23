@@ -293,73 +293,93 @@ if st.session_state.user:
 
         col1, col2, col3 = st.columns(3)
 
+        # =========================
+        # FREE
+        # =========================
         with col1:
             st.info("Free: 1 analysis/day")
 
+        # =========================
+        # PREMIUM
+        # =========================
         with col2:
             st.success("Premium ₹99/month")
 
+            if "premium_order" not in st.session_state:
+                st.session_state.premium_order = None
+
             if st.button("Pay ₹99 Premium"):
+
                 order = create_order(99)
 
-                checkout_html = f"""
-                <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+                st.session_state.premium_order = order["id"]
 
-                <script>
-                var options = {{
-                    "key": "{st.secrets["RAZORPAY_KEY_ID"]}",
-                    "amount": "9900",
-                    "currency": "INR",
-                    "order_id": "{order['id']}",
+                st.success("Order created! Complete payment in Razorpay popup.")
 
-                    "handler": function (response) {{
-                        window.parent.postMessage({{
-                            order_id: "{order['id']}",
-                            payment_id: response.razorpay_payment_id,
-                            signature: response.razorpay_signature
-                        }}, "*");
-                    }}
-                }};
+            # AFTER PAYMENT VERIFICATION
+            if st.session_state.premium_order:
 
-                var rzp = new Razorpay(options);
-                rzp.open();
-                </script>
-                """
+                st.write("👉 Paste payment details after successful payment:")
 
-                components.html(checkout_html, height=300)
+                order_id = st.text_input("Order ID")
+                payment_id = st.text_input("Payment ID")
+                signature = st.text_input("Signature")
 
+                if st.button("Verify Premium Payment"):
+
+                    if verify_payment(order_id, payment_id, signature):
+
+                        upgrade_user(st.session_state.user_email, "premium")
+
+                        st.session_state["plan"] = "premium"
+
+                        st.success("🎉 Premium Activated Successfully!")
+
+                        st.session_state.premium_order = None
+
+                    else:
+                        st.error("❌ Payment verification failed")
+
+        # =========================
+        # RECRUITER
+        # =========================
         with col3:
             st.warning("Recruiter ₹299/month")
+
+            if "recruiter_order" not in st.session_state:
+                st.session_state.recruiter_order = None
 
             if st.button("Pay ₹299 Recruiter"):
 
                 order = create_order(299)
 
-                checkout_html = f"""
-                <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+                st.session_state.recruiter_order = order["id"]
 
-                <script>
-                var options = {{
-                    "key": "{st.secrets["RAZORPAY_KEY_ID"]}",
-                    "amount": "29900",
-                    "currency": "INR",
-                    "order_id": "{order['id']}",
+                st.success("Order created! Complete payment in Razorpay popup.")
 
-                    "handler": function (response) {{
-                        window.parent.postMessage({{
-                            order_id: "{order['id']}",
-                            payment_id: response.razorpay_payment_id,
-                            signature: response.razorpay_signature
-                        }}, "*");
-                    }}
-                }};
+            # AFTER PAYMENT VERIFICATION
+            if st.session_state.recruiter_order:
 
-                var rzp = new Razorpay(options);
-                rzp.open();
-                </script>
-                """
+                st.write("👉 Paste payment details after successful payment:")
 
-                components.html(checkout_html, height=300)
+                order_id = st.text_input("Order ID Recruiter")
+                payment_id = st.text_input("Payment ID Recruiter")
+                signature = st.text_input("Signature Recruiter")
+
+                if st.button("Verify Recruiter Payment"):
+
+                    if verify_payment(order_id, payment_id, signature):
+
+                        upgrade_user(st.session_state.user_email, "recruiter")
+
+                        st.session_state["plan"] = "recruiter"
+
+                        st.success("🎉 Recruiter Plan Activated!")
+
+                        st.session_state.recruiter_order = None
+
+                    else:
+                        st.error("❌ Payment verification failed")
 
 else:
     login_signup()
