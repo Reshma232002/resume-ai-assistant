@@ -5,11 +5,10 @@ import hashlib
 from backend_db import db
 
 
-# =====================================
+# ==============================
 # RAZORPAY CLIENT
-# =====================================
+# ==============================
 def get_client():
-
     return razorpay.Client(
         auth=(
             st.secrets["RAZORPAY_KEY_ID"],
@@ -18,11 +17,10 @@ def get_client():
     )
 
 
-# =====================================
+# ==============================
 # CREATE ORDER
-# =====================================
+# ==============================
 def create_order(amount):
-
     client = get_client()
 
     order = client.order.create({
@@ -34,11 +32,10 @@ def create_order(amount):
     return order
 
 
-# =====================================
+# ==============================
 # VERIFY PAYMENT
-# =====================================
+# ==============================
 def verify_payment(order_id, payment_id, signature):
-
     secret = st.secrets["RAZORPAY_KEY_SECRET"]
 
     body = f"{order_id}|{payment_id}"
@@ -52,14 +49,19 @@ def verify_payment(order_id, payment_id, signature):
     return generated_signature == signature
 
 
-# =====================================
-# SAVE USER PLAN
-# =====================================
-def upgrade_user(user_email, plan):
+# ==============================
+# STANDARDIZE EMAIL KEY (IMPORTANT FIX)
+# ==============================
+def get_user_doc_ref(user_email):
+    clean_email = user_email.strip().replace(".", "_")
+    return db.collection("users").document(clean_email)
 
-    user_ref = db.collection("users").document(
-        user_email.replace(".", "_")
-    )
+
+# ==============================
+# SAVE / UPGRADE USER PLAN
+# ==============================
+def upgrade_user(user_email, plan):
+    user_ref = get_user_doc_ref(user_email)
 
     user_ref.set(
         {
@@ -71,21 +73,15 @@ def upgrade_user(user_email, plan):
     return True
 
 
-# =====================================
+# ==============================
 # GET USER PLAN
-# =====================================
+# ==============================
 def get_user_plan(user_email):
-
-    user_ref = db.collection("users").document(
-        user_email.replace(".", "_")
-    )
+    user_ref = get_user_doc_ref(user_email)
 
     doc = user_ref.get()
 
     if doc.exists:
-
-        data = doc.to_dict()
-
-        return data.get("plan", "free")
+        return doc.to_dict().get("plan", "free")
 
     return "free"
