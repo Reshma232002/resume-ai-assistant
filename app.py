@@ -180,7 +180,7 @@ def resume_analysis():
                 ai_insights=gemini_output,
             )
 
-           # increment_usage(st.session_state.user_email)
+            increment_usage(st.session_state.user_email)
             st.success("Saved successfully!")
 
     st.button("Logout", on_click=logout)
