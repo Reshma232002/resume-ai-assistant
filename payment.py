@@ -5,9 +5,9 @@ import hashlib
 from backend_db import db
 
 
-# ==============================
-# RAZORPAY CLIENT
-# ==============================
+# -------------------------
+# Razorpay Client
+# -------------------------
 def get_client():
     return razorpay.Client(
         auth=(
@@ -17,24 +17,24 @@ def get_client():
     )
 
 
-# ==============================
-# CREATE ORDER
-# ==============================
+# -------------------------
+# Create Order
+# -------------------------
 def create_order(amount):
     client = get_client()
 
     order = client.order.create({
         "amount": int(amount * 100),
         "currency": "INR",
-        "receipt": f"receipt_{amount}"
+        "receipt": "receipt_001"
     })
 
     return order
 
 
-# ==============================
-# VERIFY PAYMENT
-# ==============================
+# -------------------------
+# Verify Payment
+# -------------------------
 def verify_payment(order_id, payment_id, signature):
     secret = st.secrets["RAZORPAY_KEY_SECRET"]
 
@@ -49,35 +49,24 @@ def verify_payment(order_id, payment_id, signature):
     return generated_signature == signature
 
 
-# ==============================
-# STANDARDIZE EMAIL KEY (IMPORTANT FIX)
-# ==============================
-def get_user_doc_ref(user_email):
-    clean_email = user_email.strip().replace(".", "_")
-    return db.collection("users").document(clean_email)
-
-
-# ==============================
-# SAVE / UPGRADE USER PLAN
-# ==============================
+# -------------------------
+# Update User Plan
+# -------------------------
 def upgrade_user(user_email, plan):
-    user_ref = get_user_doc_ref(user_email)
-
-    user_ref.set(
-        {
-            "plan": plan
-        },
-        merge=True
+    user_ref = db.collection("users").document(
+        user_email.replace(".", "_")
     )
 
-    return True
+    user_ref.set({"plan": plan}, merge=True)
 
 
-# ==============================
-# GET USER PLAN
-# ==============================
+# -------------------------
+# Get User Plan
+# -------------------------
 def get_user_plan(user_email):
-    user_ref = get_user_doc_ref(user_email)
+    user_ref = db.collection("users").document(
+        user_email.replace(".", "_")
+    )
 
     doc = user_ref.get()
 
