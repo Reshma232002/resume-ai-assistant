@@ -323,5 +323,35 @@ if st.session_state.user:
         with col3:
             st.warning("Recruiter ₹299/month")
 
+            if st.button("Pay ₹299 Recruiter"):
+
+                order = create_order(299)
+
+                checkout_html = f"""
+                <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+                <script>
+                var options = {{
+                    "key": "{st.secrets["RAZORPAY_KEY_ID"]}",
+                    "amount": "29900",
+                    "currency": "INR",
+                    "order_id": "{order['id']}",
+
+                    "handler": function (response) {{
+                        window.parent.postMessage({{
+                            order_id: "{order['id']}",
+                            payment_id: response.razorpay_payment_id,
+                            signature: response.razorpay_signature
+                        }}, "*");
+                    }}
+                }};
+
+                var rzp = new Razorpay(options);
+                rzp.open();
+                </script>
+                """
+
+                components.html(checkout_html, height=300)
+
 else:
     login_signup()
