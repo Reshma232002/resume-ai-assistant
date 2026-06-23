@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import streamlit.components.v1 as components
 
 from firebase_config import auth
 from pdf_utils import extract_text_from_pdf
@@ -18,16 +19,12 @@ from backend_db import (
 )
 
 from payment import create_order, verify_payment, upgrade_user
-import streamlit.components.v1 as components
 
 
 # ==================================================
 # PAGE CONFIG
 # ==================================================
-st.set_page_config(
-    page_title="AI Resume Assistant",
-    layout="wide"
-)
+st.set_page_config(page_title="AI Resume Assistant", layout="wide")
 
 st.title("AI Resume Assistant")
 st.caption("Analyze resumes, compare with job descriptions, and generate career insights")
@@ -42,6 +39,12 @@ if "user" not in st.session_state:
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
 
+if "premium_order" not in st.session_state:
+    st.session_state.premium_order = None
+
+if "recruiter_order" not in st.session_state:
+    st.session_state.recruiter_order = None
+
 
 # ==================================================
 # LOGOUT
@@ -49,6 +52,8 @@ if "user_email" not in st.session_state:
 def logout():
     st.session_state.user = None
     st.session_state.user_email = ""
+    st.session_state.premium_order = None
+    st.session_state.recruiter_order = None
     st.rerun()
 
 
@@ -91,6 +96,7 @@ def dashboard():
 # RESUME ANALYSIS
 # ==================================================
 def resume_analysis():
+
     reset_daily_usage_if_needed(st.session_state.user_email)
 
     uploaded_file = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
@@ -104,20 +110,14 @@ def resume_analysis():
             st.error(message)
             st.stop()
 
-        with st.spinner("Extracting resume..."):
-            resume_text = extract_text_from_pdf(uploaded_file)
+        resume_text = extract_text_from_pdf(uploaded_file)
 
         st.subheader("Extracted Resume")
         st.text_area("Resume Text", resume_text, height=250)
 
-        with st.spinner("Running ATS Analysis..."):
-            result = analyze_resume(resume_text, job_description)
+        result = analyze_resume(resume_text, job_description)
 
-        try:
-            with st.spinner("Generating AI insights..."):
-                gemini_output = generate_ai_content(resume_text, job_description)
-        except Exception as e:
-            gemini_output = f"AI error: {str(e)}"
+        gemini_output = generate_ai_content(resume_text, job_description)
 
         st.subheader("Gemini AI Insights")
         st.markdown(gemini_output)
@@ -169,6 +169,7 @@ def resume_analysis():
             )
 
         if st.button("💾 Save Analysis"):
+
             save_analysis(
                 user_email=st.session_state.user_email,
                 resume_text=resume_text,
@@ -182,7 +183,9 @@ def resume_analysis():
             )
 
             increment_usage(st.session_state.user_email)
+
             st.success("Saved successfully!")
+
 
     st.button("Logout", on_click=logout)
 
@@ -202,18 +205,13 @@ def analysis_history():
             with st.expander(f"Analysis {i} | ATS: {item.get('ats_score', 0)}"):
 
                 st.metric("ATS Score", f"{item.get('ats_score', 0)} / 100")
-
                 st.write("Matched:", item.get("matched_skills", []))
                 st.write("Missing:", item.get("missing_skills", []))
 
-                if item.get("cover_letter"):
-                    st.text_area("Cover Letter", item["cover_letter"], key=f"cl_{i}")
+                st.text_area("Cover Letter", item.get("cover_letter", ""), key=f"cl_{i}")
+                st.text_area("LinkedIn", item.get("linkedin_summary", ""), key=f"li_{i}")
 
-                if item.get("linkedin_summary"):
-                    st.text_area("LinkedIn", item["linkedin_summary"], key=f"li_{i}")
-
-                if item.get("ai_insights"):
-                    st.markdown(item["ai_insights"])
+                st.markdown(item.get("ai_insights", ""))
 
     else:
         st.info("No saved analyses.")
@@ -226,50 +224,44 @@ def login_signup():
 
     menu = st.sidebar.selectbox("Menu", ["Login", "Sign Up"])
 
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+
     if menu == "Sign Up":
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
 
         if st.button("Sign Up"):
             try:
                 auth.create_user_with_email_and_password(email, password)
+                create_user_if_not_exists(email)
                 st.success("Account created!")
             except Exception as e:
                 st.error(e)
 
     else:
 
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-
         if st.button("Login"):
-
             try:
-                user = auth.sign_in_with_email_and_password(
-                    email.strip(),
-                    password
-                )
+                user = auth.sign_in_with_email_and_password(email, password)
 
                 st.session_state.user = user
-                st.session_state.user_email = email.strip()
+                st.session_state.user_email = email
 
-                # Create user document in Firestore
-                create_user_if_not_exists(email.strip())
+                create_user_if_not_exists(email)
 
                 st.success("Login successful!")
-
-                st.rerun()   
+                st.rerun()
 
             except Exception as e:
                 st.error(f"Login failed: {str(e)}")
 
 
 # ==================================================
-# MAIN ROUTER
+# MAIN APP
 # ==================================================
 if st.session_state.user:
 
     st.success(f"Logged in as: {st.session_state.user_email}")
+
     if st.sidebar.button("Logout"):
         logout()
 
@@ -293,20 +285,13 @@ if st.session_state.user:
 
         col1, col2, col3 = st.columns(3)
 
-        # =========================
-        # FREE
-        # =========================
+        # ================= FREE =================
         with col1:
             st.info("Free: 1 analysis/day")
 
-        # =========================
-        # PREMIUM
-        # =========================
+        # ================= PREMIUM =================
         with col2:
             st.success("Premium ₹99/month")
-
-            if "premium_order" not in st.session_state:
-                st.session_state.premium_order = None
 
             if st.button("Pay ₹99 Premium"):
 
@@ -314,40 +299,47 @@ if st.session_state.user:
 
                 st.session_state.premium_order = order["id"]
 
-                st.success("Order created! Complete payment in Razorpay popup.")
+                checkout_html = f"""
+                <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
-            # AFTER PAYMENT VERIFICATION
+                <script>
+                var options = {{
+                    "key": "{st.secrets["RAZORPAY_KEY_ID"]}",
+                    "amount": "9900",
+                    "currency": "INR",
+                    "order_id": "{order['id']}",
+                    "handler": function (response) {{
+                        window.parent.postMessage(response, "*");
+                    }}
+                }};
+                var rzp = new Razorpay(options);
+                rzp.open();
+                </script>
+                """
+
+                components.html(checkout_html, height=600)
+
             if st.session_state.premium_order:
 
-                st.write("👉 Paste payment details after successful payment:")
+                st.write("Enter payment details:")
 
-                order_id = st.text_input("Order ID")
-                payment_id = st.text_input("Payment ID")
-                signature = st.text_input("Signature")
+                o = st.text_input("Order ID")
+                p = st.text_input("Payment ID")
+                s = st.text_input("Signature")
 
                 if st.button("Verify Premium Payment"):
 
-                    if verify_payment(order_id, payment_id, signature):
-
+                    if verify_payment(o, p, s):
                         upgrade_user(st.session_state.user_email, "premium")
-
-                        st.session_state["plan"] = "premium"
-
-                        st.success("🎉 Premium Activated Successfully!")
-
+                        st.success("Premium Activated!")
                         st.session_state.premium_order = None
-
+                        st.rerun()
                     else:
-                        st.error("❌ Payment verification failed")
+                        st.error("Payment failed")
 
-        # =========================
-        # RECRUITER
-        # =========================
+        # ================= RECRUITER =================
         with col3:
             st.warning("Recruiter ₹299/month")
-
-            if "recruiter_order" not in st.session_state:
-                st.session_state.recruiter_order = None
 
             if st.button("Pay ₹299 Recruiter"):
 
@@ -355,31 +347,43 @@ if st.session_state.user:
 
                 st.session_state.recruiter_order = order["id"]
 
-                st.success("Order created! Complete payment in Razorpay popup.")
+                checkout_html = f"""
+                <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
-            # AFTER PAYMENT VERIFICATION
+                <script>
+                var options = {{
+                    "key": "{st.secrets["RAZORPAY_KEY_ID"]}",
+                    "amount": "29900",
+                    "currency": "INR",
+                    "order_id": "{order['id']}",
+                    "handler": function (response) {{
+                        window.parent.postMessage(response, "*");
+                    }}
+                }};
+                var rzp = new Razorpay(options);
+                rzp.open();
+                </script>
+                """
+
+                components.html(checkout_html, height=600)
+
             if st.session_state.recruiter_order:
 
-                st.write("👉 Paste payment details after successful payment:")
+                st.write("Enter payment details:")
 
-                order_id = st.text_input("Order ID Recruiter")
-                payment_id = st.text_input("Payment ID Recruiter")
-                signature = st.text_input("Signature Recruiter")
+                o = st.text_input("Order ID Recruiter")
+                p = st.text_input("Payment ID Recruiter")
+                s = st.text_input("Signature Recruiter")
 
                 if st.button("Verify Recruiter Payment"):
 
-                    if verify_payment(order_id, payment_id, signature):
-
+                    if verify_payment(o, p, s):
                         upgrade_user(st.session_state.user_email, "recruiter")
-
-                        st.session_state["plan"] = "recruiter"
-
-                        st.success("🎉 Recruiter Plan Activated!")
-
+                        st.success("Recruiter Activated!")
                         st.session_state.recruiter_order = None
-
+                        st.rerun()
                     else:
-                        st.error("❌ Payment verification failed")
+                        st.error("Payment failed")
 
 else:
     login_signup()
