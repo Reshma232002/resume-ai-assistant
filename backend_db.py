@@ -104,9 +104,7 @@ def get_dashboard_stats(user_email):
 # ======================================
 def get_user_doc(user_email):
 
-    doc_ref = db.collection("users").document(
-        user_email.replace(".", "_")
-    )
+    doc_ref = db.collection("users").document(user_email)
 
     doc = doc_ref.get()
 
@@ -115,9 +113,7 @@ def get_user_doc(user_email):
 
 def get_user_usage(user_email):
 
-    user_doc = get_user_doc(user_email)
-
-    return user_doc.get("daily_usage", 0)
+    user_ref = db.collection("users").document(user_email)
 
 
 def increment_usage(user_email):
@@ -159,9 +155,7 @@ def increment_usage(user_email):
 # ======================================
 def reset_daily_usage_if_needed(user_email):
 
-    user_ref = db.collection("users").document(
-        user_email.replace(".", "_")
-    )
+    user_ref = db.collection("users").document(user_email)
 
     user_doc = user_ref.get()
 
@@ -192,3 +186,18 @@ def get_user_plan_from_db(user_email):
     user_doc = get_user_doc(user_email)
 
     return user_doc.get("plan", "free")
+
+def create_user_if_not_exists(user_email):
+
+    user_ref = db.collection("users").document(
+        user_email.replace(".", "_")
+    )
+
+    if not user_ref.get().exists:
+
+        user_ref.set({
+            "email": user_email,
+            "plan": "free",
+            "daily_usage": 0,
+            "created_at": firestore.SERVER_TIMESTAMP
+        })
