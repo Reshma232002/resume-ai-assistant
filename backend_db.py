@@ -122,23 +122,36 @@ def get_user_usage(user_email):
 
 def increment_usage(user_email):
 
-    user_ref = db.collection("users").document(
-        user_email.replace(".", "_")
-    )
+    try:
 
-    user_doc = user_ref.get()
+        user_ref = db.collection("users").document(
+            user_email.replace(".", "_")
+        )
 
-    current = 0
+        user_doc = user_ref.get()
 
-    if user_doc.exists:
-        current = user_doc.to_dict().get("daily_usage", 0)
+        current = 0
 
-    user_ref.set(
-        {
-            "daily_usage": current + 1
-        },
-        merge=True
-    )
+        if user_doc.exists:
+            current = user_doc.to_dict().get(
+                "daily_usage",
+                0
+            )
+
+        user_ref.set(
+            {
+                "daily_usage": current + 1,
+                "last_reset": datetime.now().date().isoformat()
+            },
+            merge=True
+        )
+
+        print(
+            f"Usage updated for {user_email}: {current + 1}"
+        )
+
+    except Exception as e:
+        print("Firestore Error:", str(e))
 
 
 # ======================================
